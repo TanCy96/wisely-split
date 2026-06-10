@@ -30,8 +30,15 @@ const fieldsSchema = z.object({
     .min(1, "Description is required.")
     .max(200, "Description is too long."),
   amount: z.string(),
-  paid_by: z.uuid(),
-  expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date."),
+  paid_by: z.uuid("Choose who paid."),
+  expense_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date.")
+    .refine((d) => {
+      const [y, m, day] = d.split("-").map(Number);
+      const dt = new Date(d);
+      return dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === day;
+    }, "Enter a valid date."),
   split_method: z.enum(["equal", "exact", "percent", "shares"]),
 });
 

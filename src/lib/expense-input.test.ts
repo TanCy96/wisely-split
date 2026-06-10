@@ -204,4 +204,22 @@ describe("parseExpenseForm — field validation", () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it("rejects calendar-invalid dates", () => {
+    for (const expense_date of ["2026-13-45", "2026-02-30"]) {
+      const result = parseExpenseForm(
+        form({ ...base, expense_date, split_method: "equal", [`participant_${ana.id}`]: "on" }),
+        members
+      );
+      expect(result).toEqual({ ok: false, error: "Enter a valid date." });
+    }
+  });
+
+  it("gives a friendly message for a malformed payer id", () => {
+    const result = parseExpenseForm(
+      form({ ...base, paid_by: "not-a-uuid", split_method: "equal", [`participant_${ana.id}`]: "on" }),
+      members
+    );
+    expect(result).toEqual({ ok: false, error: "Choose who paid." });
+  });
 });
