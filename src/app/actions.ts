@@ -48,7 +48,15 @@ export async function logoutAction() {
 
 export async function forgotPasswordAction(formData: FormData) {
   const supabase = await serverAuth();
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
+  const base = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!base) {
+    redirect(
+      authErrorRedirectPath(
+        "/forgot-password",
+        "Password reset is not configured on this server."
+      )
+    );
+  }
   const { error } = await supabase.auth.resetPasswordForEmail(
     String(formData.get("email")),
     {
