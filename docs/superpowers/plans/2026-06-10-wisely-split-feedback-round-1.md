@@ -806,9 +806,153 @@ export default async function GroupPage({
 
 ---
 
-## Out of scope (unchanged)
+### Task 12: Keepalive + backup cron route
 
-Phase 3 (backup/keepalive cron, `vercel.json`, Vercel deploy + production auth URLs) is still pending and separate. The smoke data ("Phase2 Smoke" group, smoketest accounts) stays as demo data.
+**Files:**
+- Create: `src/app/api/cron/backup/route.ts`
+- Create: `vercel.json`
+- Already done (2026-06-10, committed separately): `.env.local.example` documents the three new vars; the real values are in the local **gitignored** `.env.local` — `CRON_SECRET` (generated), `GITHUB_BACKUP_TOKEN` (user's fine-grained PAT — **NEVER commit it; never echo it into any tracked file or log**), `GITHUB_BACKUP_REPO=TanCy96/wisely-split-backups` (private repo; token's contents access verified live).
+
+One daily job, two purposes (design spec §Keepalive + backup): the table reads count as Supabase activity (prevents the ~7-day free-tier pause), and the snapshot lands as a commit in the private GitHub repo (versioned history with diffs). Logical backup only — schema restoration comes from `supabase/migrations/`; restore = run migrations on a fresh project, then insert the JSON rows with the service-role key (auth.users must be re-created first; expense `created_by` references them).
+
+- [ ] **Step 1: Write `src/app/api/cron/backup/route.ts`:**
+
+```ts
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const TABLES = ["groups", "group_members", "expenses", "expense_shares"] as const;
+const BACKUP_PATH = "data/backup.json";
+const MAX_ROWS = 50_000; // far above group-scale data; loud failure if ever hit
+
+/**
+ * Daily keepalive + logical backup. Vercel cron invokes this with
+ * "Authorization: Bearer ${CRON_SECRET}" (sent automatically when the env var
+ * is set on the project). Reads all four tables with the service-role key and
+ * upserts a JSON snapshot into the private GitHub backup repo via the
+ * contents API — one file, so git history is the version timeline.
+ */
+export async function GET(request: Request) {
+  if (
+    !process.env.CRON_SECRET ||
+    request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  const tables: Record<string, unknown[]> = {};
+  for (const table of TABLES) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .range(0, MAX_ROWS - 1);
+    if (error) {
+      return new NextResponse(`Supabase read failed (${table}): ${error.message}`, {
+        status: 502,
+      });
+    }
+    if (data.length >= MAX_ROWS) {
+      return new NextResponse(`Backup aborted: ${table} hit the ${MAX_ROWS} row cap`, {
+        status: 507,
+      });
+    }
+    tables[table] = data;
+  }
+
+  const snapshot = JSON.stringify(
+    { exported_at: new Date().toISOString(), tables },
+    null,
+    2
+  );
+
+  const repo = process.env.GITHUB_BACKUP_REPO;
+  const githubHeaders = {
+    Authorization: `Bearer ${process.env.GITHUB_BACKUP_TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "wisely-split-backup",
+  };
+  const contentsUrl = `https://api.github.com/repos/${repo}/contents/${BACKUP_PATH}`;
+
+  // Upserting needs the current file sha (absent on first run).
+  const existing = await fetch(contentsUrl, { headers: githubHeaders });
+  const sha = existing.ok
+    ? ((await existing.json()) as { sha: string }).sha
+    : undefined;
+
+  const put = await fetch(contentsUrl, {
+    method: "PUT",
+    headers: githubHeaders,
+    body: JSON.stringify({
+      message: `backup ${new Date().toISOString().slice(0, 10)}`,
+      content: Buffer.from(snapshot).toString("base64"),
+      ...(sha ? { sha } : {}),
+    }),
+  });
+  if (!put.ok) {
+    return new NextResponse(`GitHub commit failed: ${put.status}`, { status: 502 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    rows: Object.fromEntries(
+      Object.entries(tables).map(([t, rows]) => [t, rows.length])
+    ),
+  });
+}
+```
+
+- [ ] **Step 2: Create `vercel.json`** (daily at 01:00 UTC = 09:00 SGT):
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/backup",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}
+```
+
+- [ ] **Step 3:** `npm run build` → route appears as `ƒ /api/cron/backup`. **Commit** (both files): `git commit -m "feat: daily keepalive + GitHub backup cron"` — double-check with `git diff --cached` that NO token value is in the diff before committing.
+
+---
+
+### Task 13: Verify the backup live (local)
+
+- [ ] **Step 1:** `npm run dev`, then (PowerShell reads the secret from .env.local so it never lands in the plan):
+
+```powershell
+$secret = ((Get-Content .env.local | Where-Object { $_ -match '^CRON_SECRET=' }) -replace '^CRON_SECRET=','')
+curl.exe -s -w "`n%{http_code}" -H "Authorization: Bearer $secret" http://localhost:3000/api/cron/backup
+```
+
+Expected: `{"ok":true,"rows":{"groups":N,...}}` and `200`.
+- [ ] **Step 2:** Probes: no Authorization header → 401; wrong bearer → 401. Re-run the valid call → still 200 (sha-based upsert works on the second write).
+- [ ] **Step 3:** Confirm the commit landed: `https://github.com/TanCy96/wisely-split-backups/commits` shows "backup YYYY-MM-DD" and `data/backup.json` contains the four tables.
+
+---
+
+### Task 14: Deploy to Vercel (MANUAL — user, with assistant checklist)
+
+- [ ] **Step 1:** Vercel: import the GitHub repo `TanCy96/wisely-split` (push `main` first — pushes happen only on user request), framework Next.js, region Singapore (sin1) to sit next to the Supabase project.
+- [ ] **Step 2:** Project env vars (Production): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `GITHUB_BACKUP_TOKEN`, `GITHUB_BACKUP_REPO`, and `NEXT_PUBLIC_BASE_URL=https://<prod-domain>`.
+- [ ] **Step 3:** Supabase Auth (the known smash-kaki gotcha): Site URL → production domain; add `https://<prod-domain>/auth/callback` to the redirect allowlist (keep the localhost entries for dev).
+- [ ] **Step 4:** After first deploy: confirm the cron appears under Vercel → Settings → Cron Jobs, then trigger it once from the dashboard (or wait for 01:00 UTC) and check the backup repo for a fresh commit.
+- [ ] **Step 5:** Production smoke: register/login on the prod domain, create a group, add an expense, open the invite link in a private window.
+
+---
+
+## Out of scope
+
+Nothing — this plan now covers feedback round 1 AND Phase 3 (cron + deploy). The smoke data ("Phase2 Smoke" group, smoketest accounts) stays as demo data.
 
 ## Open questions for the user (ask before or during Task 10)
 
