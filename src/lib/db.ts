@@ -291,12 +291,15 @@ export async function claimMemberViaToken(
   if (!member || member.user_id !== null) {
     return { error: "That name has already been claimed." };
   }
-  const { error } = await admin()
+  const { data, error } = await admin()
     .from("group_members")
     .update({ user_id: userId })
     .eq("id", memberId)
-    .is("user_id", null); // guards the race where two visitors claim at once
-  if (error) return { error: "Could not claim that name. Please try again." };
+    .is("user_id", null) // guards the race where two visitors claim at once
+    .select("id");
+  if (error || !data || data.length === 0) {
+    return { error: "That name has already been claimed." };
+  }
   return { groupId: invite.group.id };
 }
 
