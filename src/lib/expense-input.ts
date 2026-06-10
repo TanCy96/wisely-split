@@ -36,8 +36,14 @@ const fieldsSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date.")
     .refine((d) => {
       const [y, m, day] = d.split("-").map(Number);
+      // ISO date strings parse as UTC midnight, so compare in UTC — local
+      // getters would reject valid dates in timezones west of UTC.
       const dt = new Date(d);
-      return dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === day;
+      return (
+        dt.getUTCFullYear() === y &&
+        dt.getUTCMonth() + 1 === m &&
+        dt.getUTCDate() === day
+      );
     }, "Enter a valid date."),
   split_method: z.enum(["equal", "exact", "percent", "shares"]),
 });
