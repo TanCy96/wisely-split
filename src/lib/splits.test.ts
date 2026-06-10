@@ -64,3 +64,51 @@ describe("computeShares — equal", () => {
     expect(result).toEqual([{ memberId: "solo", shareCents: 999, splitValue: null }]);
   });
 });
+
+describe("computeShares — exact", () => {
+  it("uses the entered cents and echoes splitValue", () => {
+    const result = computeShares("exact", 5000, [
+      { memberId: "a", value: 1250 },
+      { memberId: "b", value: 3750 },
+    ]);
+    expect(result).toEqual([
+      { memberId: "a", shareCents: 1250, splitValue: 1250 },
+      { memberId: "b", shareCents: 3750, splitValue: 3750 },
+    ]);
+  });
+
+  it("allows a zero share", () => {
+    const result = computeShares("exact", 100, [
+      { memberId: "a", value: 100 },
+      { memberId: "b", value: 0 },
+    ]);
+    expect(result.map((s) => s.shareCents)).toEqual([100, 0]);
+  });
+
+  it("rejects amounts that do not sum to the total", () => {
+    expect(() =>
+      computeShares("exact", 5000, [
+        { memberId: "a", value: 1250 },
+        { memberId: "b", value: 3000 },
+      ])
+    ).toThrow(SplitError);
+  });
+
+  it("rejects missing, negative, or fractional cents", () => {
+    expect(() =>
+      computeShares("exact", 100, [{ memberId: "a", value: null }])
+    ).toThrow(SplitError);
+    expect(() =>
+      computeShares("exact", 100, [
+        { memberId: "a", value: 150 },
+        { memberId: "b", value: -50 },
+      ])
+    ).toThrow(SplitError);
+    expect(() =>
+      computeShares("exact", 100, [
+        { memberId: "a", value: 50.5 },
+        { memberId: "b", value: 49.5 },
+      ])
+    ).toThrow(SplitError);
+  });
+});

@@ -35,12 +35,36 @@ export function computeShares(
     case "equal":
       return splitEqual(amountCents, participants);
     case "exact":
-      throw new SplitError("not implemented");
+      return splitExact(amountCents, participants);
     case "percent":
       throw new SplitError("not implemented");
     case "shares":
       throw new SplitError("not implemented");
   }
+}
+
+function splitExact(
+  amountCents: number,
+  participants: SplitParticipant[]
+): ComputedShare[] {
+  for (const p of participants) {
+    if (p.value === null || !Number.isInteger(p.value) || p.value < 0) {
+      throw new SplitError(
+        "Each exact amount must be a whole number of cents (0 or more)."
+      );
+    }
+  }
+  const sum = participants.reduce((acc, p) => acc + (p.value as number), 0);
+  if (sum !== amountCents) {
+    throw new SplitError(
+      `Exact amounts must add up to the total (got ${sum}, expected ${amountCents}).`
+    );
+  }
+  return participants.map((p) => ({
+    memberId: p.memberId,
+    shareCents: p.value as number,
+    splitValue: p.value,
+  }));
 }
 
 function splitEqual(
