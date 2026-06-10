@@ -9,7 +9,7 @@
 **Tech Stack:** unchanged — Next.js 15 App Router, Supabase, Zod 4, Vitest.
 
 **User decisions captured (2026-06-10):**
-1. Accounts optional → **anonymous full access** via invite link (token = full access).
+1. Accounts optional → **anonymous full access** via invite link (token = full read/write capability: add/edit/delete expenses, settle, add members — explicitly confirmed). Dashboard stays account-only; anonymous users bookmark their `/g/<token>` links (explicitly confirmed).
 2. Default currency **RM**; stop demanding a 3-letter code (it's display-only — free label).
 3. No placeholder dots in password fields.
 4. Settle-up From/To must not be the same person (prevent in UI, not just server error).
@@ -954,7 +954,7 @@ Expected: `{"ok":true,"rows":{"groups":N,...}}` and `200`.
 
 Nothing — this plan now covers feedback round 1 AND Phase 3 (cron + deploy). The smoke data ("Phase2 Smoke" group, smoketest accounts) stays as demo data.
 
-## Open questions for the user (ask before or during Task 10)
+## Resolved questions (user answered 2026-06-10 — no open questions remain)
 
-- With anonymous access, the invite link is now a **full write capability**. Anyone with the link can add/edit/delete expenses. Acceptable for a trusted friend group (it's the smash-kaki model), but say the word if you want anonymous access limited to adding expenses only (no edit/delete).
-- The dashboard (`/`) still requires an account (it lists *your* groups). Anonymous users simply bookmark `/g/<token>`. Confirm that's the intended experience.
+- **Anonymous access gets FULL write capability** (add, edit, delete, settle, add members) — confirmed by the user. Build Tasks 7–10 exactly as specified; no read-only or add-only variant.
+- **Dashboard stays account-only** — confirmed. Anonymous users cannot see "their groups"; they keep/bookmark their `/g/<token>` links. No anonymous group list of any kind.
