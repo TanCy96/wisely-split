@@ -112,3 +112,105 @@ describe("computeShares — exact", () => {
     ).toThrow(SplitError);
   });
 });
+
+describe("computeShares — percent", () => {
+  it("converts percentages to cents", () => {
+    const result = computeShares("percent", 8000, [
+      { memberId: "a", value: 25 },
+      { memberId: "b", value: 75 },
+    ]);
+    expect(result).toEqual([
+      { memberId: "a", shareCents: 2000, splitValue: 25 },
+      { memberId: "b", shareCents: 6000, splitValue: 75 },
+    ]);
+  });
+
+  it("distributes the rounding remainder to the first members by position order", () => {
+    const result = computeShares("percent", 100, [
+      { memberId: "a", value: 33.33 },
+      { memberId: "b", value: 33.33 },
+      { memberId: "c", value: 33.34 },
+    ]);
+    expect(result.map((s) => s.shareCents)).toEqual([34, 33, 33]);
+    expect(result.reduce((acc, s) => acc + s.shareCents, 0)).toBe(100);
+  });
+
+  it("rejects percentages that do not sum to 100", () => {
+    expect(() =>
+      computeShares("percent", 100, [
+        { memberId: "a", value: 50 },
+        { memberId: "b", value: 49 },
+      ])
+    ).toThrow(SplitError);
+  });
+
+  it("rejects missing or negative percentages", () => {
+    expect(() =>
+      computeShares("percent", 100, [
+        { memberId: "a", value: null },
+        { memberId: "b", value: 100 },
+      ])
+    ).toThrow(SplitError);
+    expect(() =>
+      computeShares("percent", 100, [
+        { memberId: "a", value: 150 },
+        { memberId: "b", value: -50 },
+      ])
+    ).toThrow(SplitError);
+  });
+});
+
+describe("computeShares — shares", () => {
+  it("splits proportionally by weight with remainder to the first members", () => {
+    const result = computeShares("shares", 100, [
+      { memberId: "a", value: 2 },
+      { memberId: "b", value: 1 },
+    ]);
+    // 100 × 2/3 = 66.67 → 66; 100 × 1/3 = 33.33 → 33; remainder 1 → first member
+    expect(result).toEqual([
+      { memberId: "a", shareCents: 67, splitValue: 2 },
+      { memberId: "b", shareCents: 33, splitValue: 1 },
+    ]);
+  });
+
+  it("allows a zero weight (member owes nothing)", () => {
+    const result = computeShares("shares", 100, [
+      { memberId: "a", value: 1 },
+      { memberId: "b", value: 0 },
+    ]);
+    expect(result.map((s) => s.shareCents)).toEqual([100, 0]);
+  });
+
+  it("rejects all-zero weights", () => {
+    expect(() =>
+      computeShares("shares", 100, [
+        { memberId: "a", value: 0 },
+        { memberId: "b", value: 0 },
+      ])
+    ).toThrow(SplitError);
+  });
+});
+
+describe("computeShares — sum invariant", () => {
+  it("shares always sum exactly to the amount", () => {
+    const members = (n: number) =>
+      Array.from({ length: n }, (_, i) => `m${i + 1}`);
+    for (let amount = 1; amount <= 250; amount++) {
+      for (let n = 1; n <= 5; n++) {
+        const equal = computeShares(
+          "equal",
+          amount,
+          members(n).map((id) => ({ memberId: id, value: null }))
+        );
+        expect(equal.reduce((acc, s) => acc + s.shareCents, 0)).toBe(amount);
+
+        const weighted = computeShares(
+          "shares",
+          amount,
+          members(n).map((id, i) => ({ memberId: id, value: i + 1 }))
+        );
+        expect(weighted.reduce((acc, s) => acc + s.shareCents, 0)).toBe(amount);
+      }
+    }
+  });
+});

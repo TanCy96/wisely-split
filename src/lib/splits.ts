@@ -37,10 +37,47 @@ export function computeShares(
     case "exact":
       return splitExact(amountCents, participants);
     case "percent":
-      throw new SplitError("not implemented");
+      return splitProportional(amountCents, participants, "percent");
     case "shares":
-      throw new SplitError("not implemented");
+      return splitProportional(amountCents, participants, "shares");
   }
+}
+
+function splitProportional(
+  amountCents: number,
+  participants: SplitParticipant[],
+  kind: "percent" | "shares"
+): ComputedShare[] {
+  for (const p of participants) {
+    if (p.value === null || !Number.isFinite(p.value) || p.value < 0) {
+      throw new SplitError(
+        kind === "percent"
+          ? "Each percentage must be a number (0 or more)."
+          : "Each share weight must be a number (0 or more)."
+      );
+    }
+  }
+  const total = participants.reduce((acc, p) => acc + (p.value as number), 0);
+  if (kind === "percent" && Math.abs(total - 100) > 1e-6) {
+    throw new SplitError(`Percentages must add up to 100 (got ${total}).`);
+  }
+  if (kind === "shares" && total <= 0) {
+    throw new SplitError("Share weights must add up to more than zero.");
+  }
+
+  const floors = participants.map((p) =>
+    Math.floor((amountCents * (p.value as number)) / total)
+  );
+  let remainder = amountCents - floors.reduce((acc, f) => acc + f, 0);
+  return participants.map((p, i) => {
+    const extra = remainder > 0 ? 1 : 0;
+    remainder -= extra;
+    return {
+      memberId: p.memberId,
+      shareCents: floors[i] + extra,
+      splitValue: p.value,
+    };
+  });
 }
 
 function splitExact(
