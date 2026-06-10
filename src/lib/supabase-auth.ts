@@ -36,5 +36,3 @@ export async function currentUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-/** Alias for currentUserId — used by copied auth pages from smash-kaki. */
-export const currentPlayerId = currentUserId;

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { updatePasswordAction } from "@/app/actions";
 import { Alert, Button, Card, Field, Input, PageShell } from "@/components/ui";
-import { currentPlayerId } from "@/lib/supabase-auth";
+import { currentUserId } from "@/lib/supabase-auth";
 
 export default async function UpdatePassword({
   searchParams,
@@ -12,8 +12,8 @@ export default async function UpdatePassword({
 
   // Reachable only with an active session (the recovery link establishes one
   // via /auth/callback). Direct visits without a session go back to reset.
-  const playerId = await currentPlayerId();
-  if (!playerId) redirect("/forgot-password");
+  const userId = await currentUserId();
+  if (!userId) redirect("/forgot-password");
 
   return (
     <PageShell narrow>
