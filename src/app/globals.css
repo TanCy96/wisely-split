@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* Semantic tokens — light mode defaults */
+:root {
+  --canvas: #f0fdf4;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --ink: #374151;
+  --heading: #064e3b;
+  --muted: #6b7280;
+  --primary: #10b981;
+  --primary-hi: #34d399;
+  --on-primary: #ffffff;
+  --accent: #f59e0b;
+  --ring: #10b981;
+
+  --success-bg: #d1fae5;
+  --success-ink: #065f46;
+  --danger-bg: #fee2e2;
+  --danger-ink: #991b1b;
+  --danger: #dc2626;
+  --accent-bg: #fef3c7;
+  --accent-ink: #92400e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0a1410;
+    --card: #13211b;
+    --border: #1e3a2f;
+    --ink: #a7c4b5;
+    --heading: #ecfdf5;
+    --muted: #6b8577;
+    --primary: #10b981;
+    --primary-hi: #34d399;
+    --on-primary: #06281e;
+    --accent: #f59e0b;
+    --ring: #34d399;
+
+    --success-bg: #06342a;
+    --success-ink: #6ee7b7;
+    --danger-bg: #3b1212;
+    --danger-ink: #fca5a5;
+    --danger: #f87171;
+    --accent-bg: #3a2c08;
+    --accent-ink: #fcd34d;
+  }
+}
+
+/* Map tokens to Tailwind utilities (inline = utilities reference the var,
+   so the dark @media override applies at runtime) */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-heading: var(--heading);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hi: var(--primary-hi);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-ring: var(--ring);
+  --color-success-bg: var(--success-bg);
+  --color-success-ink: var(--success-ink);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger: var(--danger);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-ink: var(--accent-ink);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
