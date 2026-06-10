@@ -69,7 +69,7 @@ function splitProportional(
     Math.floor((amountCents * (p.value as number)) / total)
   );
   let remainder = amountCents - floors.reduce((acc, f) => acc + f, 0);
-  return participants.map((p, i) => {
+  const result = participants.map((p, i) => {
     const extra = remainder > 0 ? 1 : 0;
     remainder -= extra;
     return {
@@ -78,6 +78,8 @@ function splitProportional(
       splitValue: p.value,
     };
   });
+  assertSharesSumToAmount(result, amountCents);
+  return result;
 }
 
 function splitExact(
@@ -102,6 +104,18 @@ function splitExact(
     shareCents: p.value as number,
     splitValue: p.value,
   }));
+}
+
+function assertSharesSumToAmount(
+  shares: ComputedShare[],
+  amountCents: number
+) {
+  const sum = shares.reduce((acc, s) => acc + s.shareCents, 0);
+  if (sum !== amountCents) {
+    throw new SplitError(
+      "Could not compute a valid split for these values."
+    );
+  }
 }
 
 function splitEqual(

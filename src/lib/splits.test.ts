@@ -191,6 +191,17 @@ describe("computeShares — shares", () => {
   });
 });
 
+describe("computeShares — overflow safety", () => {
+  it("throws rather than producing NaN shares on absurd weights", () => {
+    expect(() =>
+      computeShares("shares", 10000, [
+        { memberId: "a", value: 1e308 },
+        { memberId: "b", value: 1e308 },
+      ])
+    ).toThrow(SplitError);
+  });
+});
+
 describe("computeShares — sum invariant", () => {
   it("shares always sum exactly to the amount", () => {
     const members = (n: number) =>
