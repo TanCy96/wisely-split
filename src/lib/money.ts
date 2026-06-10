@@ -14,7 +14,11 @@ export function parseMoneyToCents(input: string): number | null {
   return cents > MAX_CENTS ? null : cents;
 }
 
-/** 1234 → "12.34" (the inverse of parseMoneyToCents, for form redisplay). */
+/**
+ * 1234 → "12.34", -50 → "-0.50". Input must be integer cents (every ledger
+ * value is, by schema and engine contract) — non-integer input renders as
+ * visible garbage on purpose rather than being silently rounded.
+ */
 export function centsToMoneyString(cents: number): string {
   const sign = cents < 0 ? "-" : "";
   const abs = Math.abs(cents);
