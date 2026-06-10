@@ -4,9 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { authErrorMessage, authErrorRedirectPath } from "@/lib/auth-errors";
+import { safeNextPath } from "@/lib/safe-redirect";
 import { serverAuth } from "@/lib/supabase-auth";
 
+function withNext(errorPath: string, next: string) {
+  // authErrorRedirectPath always emits "?error=...", so "&" is correct here.
+  return next === "/" ? errorPath : `${errorPath}&next=${encodeURIComponent(next)}`;
+}
+
 export async function registerAction(formData: FormData) {
+  const next = safeNextPath(formData.get("next") as string | null);
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
   const displayName = String(formData.get("display_name"));
@@ -17,32 +24,33 @@ export async function registerAction(formData: FormData) {
     options: { data: { display_name: displayName } },
   });
   if (error) {
-    redirect(authErrorRedirectPath("/register", authErrorMessage(error)));
+    redirect(withNext(authErrorRedirectPath("/register", authErrorMessage(error)), next));
   }
 
-  revalidatePath("/");
-  redirect("/");
+  revalidatePath("/", "layout");
+  redirect(next);
 }
 
 export async function loginAction(formData: FormData) {
+  const next = safeNextPath(formData.get("next") as string | null);
   const supabase = await serverAuth();
   const { error } = await supabase.auth.signInWithPassword({
     email: String(formData.get("email")),
     password: String(formData.get("password")),
   });
   if (error) {
-    redirect(authErrorRedirectPath("/login", authErrorMessage(error)));
+    redirect(withNext(authErrorRedirectPath("/login", authErrorMessage(error)), next));
   }
 
-  revalidatePath("/");
-  redirect("/");
+  revalidatePath("/", "layout");
+  redirect(next);
 }
 
 export async function logoutAction() {
   const supabase = await serverAuth();
   await supabase.auth.signOut();
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   redirect("/");
 }
 
