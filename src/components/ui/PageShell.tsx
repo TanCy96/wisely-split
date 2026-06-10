@@ -6,7 +6,7 @@ function Header({ headerRight }: { headerRight?: ReactNode }) {
     <header className="border-b border-border bg-card/60 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
         <Link href="/" className="text-lg font-extrabold text-heading">
-          🏸 SmashKaki
+          💸 wisely-split
         </Link>
         {headerRight}
       </div>

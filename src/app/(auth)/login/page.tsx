@@ -1,0 +1,33 @@
+import Link from "next/link";
+import { loginAction } from "@/app/actions";
+import { Alert, Button, Card, Field, Input, PageShell } from "@/components/ui";
+
+export default async function Login({
+  searchParams,
+}: {
+  searchParams: Promise<{ reset?: string; error?: string }>;
+}) {
+  const { reset, error } = await searchParams;
+
+  return (
+    <PageShell narrow>
+      <Card title="Log in">
+        {reset === "sent" && <Alert tone="success">Password reset email sent.</Alert>}
+        {error && <Alert tone="danger">{error}</Alert>}
+        <form action={loginAction} className="mt-3 flex flex-col gap-3">
+          <Field label="Email">
+            <Input name="email" type="email" placeholder="you@example.com" required />
+          </Field>
+          <Field label="Password">
+            <Input name="password" type="password" required />
+          </Field>
+          <Button>Log in</Button>
+        </form>
+        <div className="mt-4 flex justify-between gap-3 text-sm font-semibold">
+          <Link href="/register" className="text-primary hover:underline">Create account</Link>
+          <Link href="/forgot-password" className="text-primary hover:underline">Forgot password?</Link>
+        </div>
+      </Card>
+    </PageShell>
+  );
+}
