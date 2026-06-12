@@ -1,7 +1,7 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { ExpenseForm } from "@/components/ExpenseForm";
+import { ExpenseList, type ExpenseListItem } from "@/components/ExpenseList";
 import { SettleUpForm } from "@/components/SettleUpForm";
 import {
   Alert,
@@ -43,6 +43,8 @@ export function GroupView({
   inviteUrl,
   headerRight,
   topCards,
+  locked,
+  defaultPaidBy,
 }: {
   group: GroupRow;
   members: MemberRow[];
@@ -55,6 +57,8 @@ export function GroupView({
   inviteUrl: string;
   headerRight?: ReactNode;
   topCards?: ReactNode;
+  locked?: ReactNode; // when present, replaces every write form (identity gate)
+  defaultPaidBy?: string;
 }) {
   const ledger = expenses.map((e) => ({
     paidByMemberId: e.paid_by,
@@ -77,69 +81,56 @@ export function GroupView({
     displayName: m.display_name,
   }));
 
-  const editing = editingId
-    ? expenses.find((e) => e.id === editingId)
-    : undefined;
-  let editingInitial;
-  if (editing) {
+  const canEdit = !locked;
+  const items: ExpenseListItem[] = expenses.map((e) => {
     const included: Record<string, boolean> = {};
     const values: Record<string, string> = {};
-    for (const share of editing.expense_shares) {
+    for (const share of e.expense_shares) {
       included[share.member_id] = true;
-      if (editing.split_method === "exact") {
+      if (e.split_method === "exact") {
         values[share.member_id] = centsToMoneyString(share.share_cents);
       } else if (share.split_value !== null) {
         values[share.member_id] = String(share.split_value);
       }
     }
-    editingInitial = {
-      description: editing.description,
-      amount: centsToMoneyString(editing.amount_cents),
-      paidBy: editing.paid_by,
-      expenseDate: editing.expense_date,
-      splitMethod: editing.split_method,
-      included,
-      values,
+    const addedBy = e.created_by_member
+      ? nameOf.get(e.created_by_member)
+      : undefined;
+    return {
+      id: e.id,
+      description: e.description,
+      amountLabel: formatMoney(e.amount_cents, group.currency_code),
+      meta: [
+        e.expense_date,
+        `paid by ${nameOf.get(e.paid_by) ?? "?"}`,
+        ...(e.is_settlement ? ["settle-up"] : []),
+        ...(addedBy ? [`added by ${addedBy}`] : []),
+      ].join(" · "),
+      initial: {
+        description: e.description,
+        amount: centsToMoneyString(e.amount_cents),
+        paidBy: e.paid_by,
+        expenseDate: e.expense_date,
+        splitMethod: e.split_method,
+        included,
+        values,
+      },
     };
-  }
-
-  const hiddenInputs = Object.entries(hiddenFields).map(([name, value]) => (
-    <input key={name} type="hidden" name={name} value={value} />
-  ));
+  });
+  // The edit modal will be open (SSR) iff a valid id is in ?edit= and editing
+  // is allowed — in that case the island shows the error inside the modal and
+  // the top-of-page alert must stay silent.
+  const modalOwnsError =
+    canEdit && Boolean(editingId && expenses.some((e) => e.id === editingId));
 
   return (
     <PageShell
       headerRight={headerRight}
       aside={
-        <>
-          {editing ? (
-            <Card title="Edit expense" highlight>
-              <ExpenseForm
-                key={editing.id}
-                action={actions.updateExpense}
-                members={memberOptions}
-                defaultDate={editing.expense_date}
-                submitLabel="Save changes"
-                hiddenFields={{ ...hiddenFields, expense_id: editing.id }}
-                initial={editingInitial}
-              />
-              <div className="mt-3 flex items-center justify-between">
-                <Link
-                  href={basePath}
-                  className="text-sm font-semibold text-muted hover:underline"
-                >
-                  Cancel
-                </Link>
-                <form action={actions.deleteExpense}>
-                  {hiddenInputs}
-                  <input type="hidden" name="expense_id" value={editing.id} />
-                  <Button variant="danger" className="px-3 py-1.5 text-xs">
-                    Delete expense
-                  </Button>
-                </form>
-              </div>
-            </Card>
-          ) : (
+        locked ? (
+          locked
+        ) : (
+          <>
             <Card title="Add expense">
               <ExpenseForm
                 key="new"
@@ -148,31 +139,39 @@ export function GroupView({
                 defaultDate={today}
                 submitLabel="Add expense"
                 hiddenFields={hiddenFields}
+                defaultPaidBy={defaultPaidBy}
               />
             </Card>
-          )}
-          <Card title="Members">
-            <ul className="mb-3 flex flex-col gap-1 text-sm">
-              {members.map((m) => (
-                <li
-                  key={m.id}
-                  className="flex items-center justify-between gap-2"
-                >
-                  <span className="text-ink">{m.display_name}</span>
-                </li>
-              ))}
-            </ul>
-            <form action={actions.addMember} className="flex items-end gap-2">
-              {hiddenInputs}
-              <Field label="Add a name">
-                <Input name="display_name" placeholder="Alex" required maxLength={80} />
-              </Field>
-              <Button variant="secondary" className="shrink-0">
-                Add
-              </Button>
-            </form>
-          </Card>
-        </>
+            <Card title="Members">
+              <ul className="mb-3 flex flex-col gap-1 text-sm">
+                {members.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="text-ink">{m.display_name}</span>
+                  </li>
+                ))}
+              </ul>
+              <form action={actions.addMember} className="flex items-end gap-2">
+                {Object.entries(hiddenFields).map(([name, value]) => (
+                  <input key={name} type="hidden" name={name} value={value} />
+                ))}
+                <Field label="Add a name">
+                  <Input
+                    name="display_name"
+                    placeholder="Alex"
+                    required
+                    maxLength={80}
+                  />
+                </Field>
+                <Button variant="secondary" className="shrink-0">
+                  Add
+                </Button>
+              </form>
+            </Card>
+          </>
+        )
       }
     >
       {topCards}
@@ -180,7 +179,7 @@ export function GroupView({
         <h1 className="text-2xl font-extrabold text-heading">{group.name}</h1>
         <CopyLinkButton url={inviteUrl} label="Copy invite link" />
       </div>
-      {error && <Alert tone="danger">{error}</Alert>}
+      {error && !modalOwnsError && <Alert tone="danger">{error}</Alert>}
 
       <Card title="Balances">
         <div className="flex items-baseline justify-between gap-3 pb-2">
@@ -229,41 +228,28 @@ export function GroupView({
             ))}
           </ul>
         )}
-        <SettleUpForm
-          action={actions.recordPayment}
-          members={memberOptions}
-          hiddenFields={hiddenFields}
-        />
+        {canEdit && (
+          <SettleUpForm
+            action={actions.recordPayment}
+            members={memberOptions}
+            hiddenFields={hiddenFields}
+          />
+        )}
       </Card>
 
       <Card title="Expenses">
-        {expenses.length === 0 ? (
+        {items.length === 0 ? (
           <p className="text-sm text-muted">No expenses yet.</p>
         ) : (
-          <ul className="flex flex-col">
-            {expenses.map((e) => (
-              <li key={e.id}>
-                <Link
-                  href={`${basePath}?edit=${e.id}`}
-                  className={
-                    "flex items-baseline justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/5" +
-                    (e.id === editing?.id ? " bg-black/5 dark:bg-white/5" : "")
-                  }
-                >
-                  <span>
-                    <span className="font-semibold text-ink">{e.description}</span>
-                    <span className="ml-2 text-xs text-muted">
-                      {e.expense_date} · paid by {nameOf.get(e.paid_by) ?? "?"}
-                      {e.is_settlement ? " · settle-up" : ""}
-                    </span>
-                  </span>
-                  <span className="font-semibold text-ink">
-                    {formatMoney(e.amount_cents, group.currency_code)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ExpenseList
+            items={items}
+            members={memberOptions}
+            basePath={basePath}
+            hiddenFields={hiddenFields}
+            updateAction={actions.updateExpense}
+            deleteAction={actions.deleteExpense}
+            canEdit={canEdit}
+          />
         )}
       </Card>
     </PageShell>
