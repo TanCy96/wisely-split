@@ -24,7 +24,7 @@ export default async function Register({
             <Input name="email" type="email" placeholder="you@example.com" required />
           </Field>
           <Field label="Password (min 6)">
-            <Input name="password" type="password" minLength={6} placeholder="••••••••" required />
+            <Input name="password" type="password" minLength={6} required />
           </Field>
           <Button>Register</Button>
         </form>

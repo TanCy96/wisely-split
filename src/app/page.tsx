@@ -44,8 +44,8 @@ export default async function Home({
             <Field label="Group name">
               <Input name="name" placeholder="Bali trip" required maxLength={80} />
             </Field>
-            <Field label="Currency">
-              <Input name="currency_code" defaultValue="SGD" required maxLength={3} />
+            <Field label="Currency label (shown next to amounts)">
+              <Input name="currency_code" defaultValue="RM" required maxLength={8} />
             </Field>
             <Field label="Your name in this group">
               <Input

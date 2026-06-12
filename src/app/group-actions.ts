@@ -42,8 +42,8 @@ const createGroupSchema = z.object({
   currency_code: z
     .string()
     .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{3}$/, "Currency must be a 3-letter code."),
+    .min(1, "Currency label is required.")
+    .max(8, "Keep the currency label short."),
   display_name: nameSchema,
 });
 
