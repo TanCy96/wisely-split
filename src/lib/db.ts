@@ -53,7 +53,7 @@ export type ExpenseInput = {
   splitMethod: SplitMethod;
   isSettlement: boolean;
   expenseDate: string;
-  createdBy: string;
+  createdBy: string | null;
 };
 
 export type ShareInput = {
@@ -320,5 +320,128 @@ export async function joinGroupViaToken(
   });
   // unique (group_id, user_id) also backstops a join/claim race
   if (error) return { error: "Could not join this group. Please try again." };
+  return { groupId: invite.group.id };
+}
+
+export type TokenGroupData = {
+  group: GroupRow;
+  members: MemberRow[];
+  expenses: ExpenseRow[];
+};
+
+/** Full group data for the anonymous invite view. Token = read capability. */
+export async function getGroupDataViaToken(
+  token: string
+): Promise<TokenGroupData | null> {
+  const invite = await getGroupByInviteToken(token);
+  if (!invite) return null;
+  const { data, error } = await admin()
+    .from("expenses")
+    .select(EXPENSE_COLUMNS)
+    .eq("group_id", invite.group.id)
+    .order("expense_date", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return {
+    group: invite.group,
+    members: invite.members,
+    expenses: data as unknown as ExpenseRow[],
+  };
+}
+
+export async function addMemberViaToken(
+  token: string,
+  displayName: string
+): Promise<TokenJoinResult> {
+  const invite = await getGroupByInviteToken(token);
+  if (!invite) return { error: "This invite link is invalid." };
+  const { error } = await admin().from("group_members").insert({
+    group_id: invite.group.id,
+    display_name: displayName,
+    user_id: null,
+  });
+  if (error) return { error: "Could not add that member. Please try again." };
+  return { groupId: invite.group.id };
+}
+
+/** Token = write capability: expense ops validate the token, then constrain
+ *  every statement to the token's group id. */
+export async function createExpenseViaToken(
+  token: string,
+  input: Omit<ExpenseInput, "groupId">,
+  shares: ShareInput[]
+): Promise<TokenJoinResult> {
+  const invite = await getGroupByInviteToken(token);
+  if (!invite) return { error: "This invite link is invalid." };
+  const expenseId = crypto.randomUUID();
+  const { error } = await admin().from("expenses").insert({
+    id: expenseId,
+    group_id: invite.group.id,
+    description: input.description,
+    amount_cents: input.amountCents,
+    paid_by: input.paidBy,
+    split_method: input.splitMethod,
+    is_settlement: input.isSettlement,
+    expense_date: input.expenseDate,
+    created_by: input.createdBy,
+  });
+  if (error) return { error: "Could not save the expense. Please try again." };
+  const { error: sharesError } = await admin()
+    .from("expense_shares")
+    .insert(shares.map((s) => toShareRow(expenseId, s)));
+  if (sharesError) {
+    await admin().from("expenses").delete().eq("id", expenseId);
+    return { error: "Could not save the expense. Please try again." };
+  }
+  return { groupId: invite.group.id };
+}
+
+export async function updateExpenseViaToken(
+  token: string,
+  expenseId: string,
+  input: Omit<ExpenseInput, "groupId" | "isSettlement" | "createdBy">,
+  shares: ShareInput[]
+): Promise<TokenJoinResult> {
+  const invite = await getGroupByInviteToken(token);
+  if (!invite) return { error: "This invite link is invalid." };
+  const { data, error } = await admin()
+    .from("expenses")
+    .update({
+      description: input.description,
+      amount_cents: input.amountCents,
+      paid_by: input.paidBy,
+      split_method: input.splitMethod,
+      expense_date: input.expenseDate,
+    })
+    .eq("id", expenseId)
+    .eq("group_id", invite.group.id) // token's group only
+    .select("id");
+  if (error || !data || data.length === 0) {
+    return { error: "That expense no longer exists." };
+  }
+  const { error: deleteError } = await admin()
+    .from("expense_shares")
+    .delete()
+    .eq("expense_id", expenseId);
+  if (deleteError) return { error: "Could not save the changes. Please try again." };
+  const { error: insertError } = await admin()
+    .from("expense_shares")
+    .insert(shares.map((s) => toShareRow(expenseId, s)));
+  if (insertError) return { error: "Could not save the changes. Please try again." };
+  return { groupId: invite.group.id };
+}
+
+export async function deleteExpenseViaToken(
+  token: string,
+  expenseId: string
+): Promise<TokenJoinResult> {
+  const invite = await getGroupByInviteToken(token);
+  if (!invite) return { error: "This invite link is invalid." };
+  const { error } = await admin()
+    .from("expenses")
+    .delete()
+    .eq("id", expenseId)
+    .eq("group_id", invite.group.id);
+  if (error) return { error: "Could not delete the expense. Please try again." };
   return { groupId: invite.group.id };
 }
