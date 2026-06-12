@@ -201,7 +201,10 @@ export async function createExpense(
 
 export async function updateExpense(
   expenseId: string,
-  input: Omit<ExpenseInput, "groupId" | "isSettlement" | "createdBy">,
+  input: Omit<
+    ExpenseInput,
+    "groupId" | "isSettlement" | "createdBy" | "createdByMember"
+  >,
   shares: ShareInput[]
 ): Promise<void> {
   const supabase = await serverAuth();
@@ -280,6 +283,10 @@ export async function getGroupByInviteToken(
 
 export type TokenJoinResult = { groupId: string } | { error: string };
 
+export type TokenAddMemberResult =
+  | { groupId: string; memberId: string }
+  | { error: string };
+
 export async function claimMemberViaToken(
   token: string,
   memberId: string,
@@ -355,7 +362,7 @@ export async function getGroupDataViaToken(
 export async function addMemberViaToken(
   token: string,
   displayName: string
-): Promise<{ groupId: string; memberId: string } | { error: string }> {
+): Promise<TokenAddMemberResult> {
   const invite = await getGroupByInviteToken(token);
   if (!invite) return { error: "This invite link is invalid." };
   const { data, error } = await admin()
@@ -409,7 +416,10 @@ export async function createExpenseViaToken(
 export async function updateExpenseViaToken(
   token: string,
   expenseId: string,
-  input: Omit<ExpenseInput, "groupId" | "isSettlement" | "createdBy">,
+  input: Omit<
+    ExpenseInput,
+    "groupId" | "isSettlement" | "createdBy" | "createdByMember"
+  >,
   shares: ShareInput[]
 ): Promise<TokenJoinResult> {
   const invite = await getGroupByInviteToken(token);
