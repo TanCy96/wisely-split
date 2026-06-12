@@ -40,6 +40,7 @@ export type ExpenseRow = {
   is_settlement: boolean;
   expense_date: string;
   created_by: string | null; // NULL = added anonymously via invite link
+  created_by_member: string | null; // member who added it ("added by"); stamped on create only
   created_at: string;
   updated_at: string;
   expense_shares: ShareRow[];
@@ -54,6 +55,7 @@ export type ExpenseInput = {
   isSettlement: boolean;
   expenseDate: string;
   createdBy: string | null;
+  createdByMember?: string | null;
 };
 
 export type ShareInput = {
@@ -66,7 +68,7 @@ const GROUP_COLUMNS = "id, name, currency_code, invite_token, created_by, create
 const MEMBER_COLUMNS = "id, group_id, display_name, user_id, created_at";
 const EXPENSE_COLUMNS =
   "id, group_id, description, amount_cents, paid_by, split_method, is_settlement, " +
-  "expense_date, created_by, created_at, updated_at, " +
+  "expense_date, created_by, created_by_member, created_at, updated_at, " +
   "expense_shares (id, expense_id, member_id, share_cents, split_value)";
 
 /* ---------- Member operations (RLS-scoped session client) ---------- */
@@ -182,6 +184,7 @@ export async function createExpense(
     is_settlement: input.isSettlement,
     expense_date: input.expenseDate,
     created_by: input.createdBy,
+    created_by_member: input.createdByMember ?? null,
   });
   if (error) throw new Error(error.message);
   const { error: sharesError } = await supabase
@@ -352,16 +355,22 @@ export async function getGroupDataViaToken(
 export async function addMemberViaToken(
   token: string,
   displayName: string
-): Promise<TokenJoinResult> {
+): Promise<{ groupId: string; memberId: string } | { error: string }> {
   const invite = await getGroupByInviteToken(token);
   if (!invite) return { error: "This invite link is invalid." };
-  const { error } = await admin().from("group_members").insert({
-    group_id: invite.group.id,
-    display_name: displayName,
-    user_id: null,
-  });
-  if (error) return { error: "Could not add that member. Please try again." };
-  return { groupId: invite.group.id };
+  const { data, error } = await admin()
+    .from("group_members")
+    .insert({
+      group_id: invite.group.id,
+      display_name: displayName,
+      user_id: null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    return { error: "Could not add that member. Please try again." };
+  }
+  return { groupId: invite.group.id, memberId: data.id };
 }
 
 /** Token = write capability: expense ops validate the token, then constrain
@@ -384,6 +393,7 @@ export async function createExpenseViaToken(
     is_settlement: input.isSettlement,
     expense_date: input.expenseDate,
     created_by: input.createdBy,
+    created_by_member: input.createdByMember ?? null,
   });
   if (error) return { error: "Could not save the expense. Please try again." };
   const { error: sharesError } = await admin()
