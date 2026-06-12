@@ -6,3 +6,5 @@
 
 alter table expenses
   add column created_by_member uuid references group_members (id) on delete set null;
+
+create index expenses_created_by_member_idx on expenses (created_by_member);
