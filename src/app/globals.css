@@ -2,17 +2,17 @@
 
 /* Semantic tokens — light mode defaults */
 :root {
-  --canvas: #f0fdf4;
+  --canvas: #f0f9ff;
   --card: #ffffff;
   --border: #e5e7eb;
   --ink: #374151;
-  --heading: #064e3b;
+  --heading: #0c4a6e;
   --muted: #6b7280;
-  --primary: #10b981;
-  --primary-hi: #34d399;
+  --primary: #0ea5e9;
+  --primary-hi: #38bdf8;
   --on-primary: #ffffff;
   --accent: #f59e0b;
-  --ring: #10b981;
+  --ring: #0ea5e9;
 
   --success-bg: #d1fae5;
   --success-ink: #065f46;
@@ -25,17 +25,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --canvas: #0a1410;
-    --card: #13211b;
-    --border: #1e3a2f;
-    --ink: #a7c4b5;
-    --heading: #ecfdf5;
-    --muted: #6b8577;
-    --primary: #10b981;
-    --primary-hi: #34d399;
-    --on-primary: #06281e;
+    --canvas: #0a1014;
+    --card: #131b21;
+    --border: #1e2f3a;
+    --ink: #a7b5c4;
+    --heading: #f0f9ff;
+    --muted: #6b7785;
+    --primary: #0ea5e9;
+    --primary-hi: #38bdf8;
+    --on-primary: #082f49;
     --accent: #f59e0b;
-    --ring: #34d399;
+    --ring: #38bdf8;
 
     --success-bg: #06342a;
     --success-ink: #6ee7b7;
