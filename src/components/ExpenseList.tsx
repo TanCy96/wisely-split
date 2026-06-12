@@ -30,7 +30,6 @@ export function ExpenseList({
   hiddenFields,
   updateAction,
   deleteAction,
-  error,
   canEdit,
 }: {
   items: ExpenseListItem[];
@@ -39,11 +38,11 @@ export function ExpenseList({
   hiddenFields: Record<string, string>;
   updateAction: (formData: FormData) => void | Promise<void>;
   deleteAction: (formData: FormData) => void | Promise<void>;
-  error?: string;
   canEdit: boolean;
 }) {
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const error = searchParams.get("error") ?? undefined;
   const editing = canEdit && editId ? items.find((i) => i.id === editId) : undefined;
 
   const close = () => window.history.replaceState(null, "", basePath);
@@ -79,6 +78,7 @@ export function ExpenseList({
               <a
                 href={`${basePath}?edit=${item.id}`}
                 onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                   e.preventDefault();
                   window.history.replaceState(
                     null,
@@ -103,12 +103,17 @@ export function ExpenseList({
 
       {editing && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:py-10"
-          onClick={(e) => {
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 p-4 sm:py-10"
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) close();
           }}
         >
-          <div className="w-full max-w-md">
+          <div
+            className="w-full max-w-md"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit expense"
+          >
             <Card title="Edit expense" className="shadow-xl">
               {error && <Alert tone="danger">{error}</Alert>}
               <ExpenseForm
