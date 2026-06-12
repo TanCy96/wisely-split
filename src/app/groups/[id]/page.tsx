@@ -9,6 +9,7 @@ import {
 import { AuthNav } from "@/components/AuthNav";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { ExpenseForm } from "@/components/ExpenseForm";
+import { SettleUpForm } from "@/components/SettleUpForm";
 import {
   Alert,
   Button,
@@ -16,7 +17,6 @@ import {
   Field,
   Input,
   PageShell,
-  Select,
   StatRow,
 } from "@/components/ui";
 import { computeBalances } from "@/lib/balances";
@@ -133,42 +133,11 @@ export default async function GroupPage({
             ))}
           </ul>
         )}
-        <form
+        <SettleUpForm
           action={recordPaymentAction}
-          className="flex flex-wrap items-end gap-2"
-        >
-          <input type="hidden" name="group_id" value={group.id} />
-          <Field label="From">
-            <Select name="from_member">
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.display_name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="To">
-            <Select name="to_member">
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.display_name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Amount">
-            <Input
-              name="amount"
-              inputMode="decimal"
-              placeholder="10.00"
-              required
-              className="w-28"
-            />
-          </Field>
-          <Button variant="secondary" className="shrink-0">
-            Record payment
-          </Button>
-        </form>
+          members={memberOptions}
+          hiddenFields={{ group_id: group.id }}
+        />
       </Card>
 
       <Card title="Expenses">
