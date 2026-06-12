@@ -32,6 +32,7 @@ export function ExpenseForm({
   defaultDate,
   submitLabel,
   hiddenFields,
+  defaultPaidBy,
   initial,
 }: {
   action: (formData: FormData) => void | Promise<void>;
@@ -39,6 +40,7 @@ export function ExpenseForm({
   defaultDate: string;
   submitLabel: string;
   hiddenFields: Record<string, string>;
+  defaultPaidBy?: string;
   initial?: ExpenseFormInitial;
 }) {
   const [method, setMethod] = useState<SplitMethod>(
@@ -69,7 +71,7 @@ export function ExpenseForm({
         />
       </Field>
       <Field label="Paid by">
-        <Select name="paid_by" defaultValue={initial?.paidBy}>
+        <Select name="paid_by" defaultValue={initial?.paidBy ?? defaultPaidBy}>
           {members.map((m) => (
             <option key={m.id} value={m.id}>
               {m.displayName}
