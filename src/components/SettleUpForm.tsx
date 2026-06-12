@@ -18,6 +18,14 @@ export function SettleUpForm({
   const [from, setFrom] = useState(members[0]?.id ?? "");
   const toOptions = members.filter((m) => m.id !== from);
 
+  if (members.length < 2) {
+    return (
+      <p className="text-sm text-muted">
+        Add another member to record payments.
+      </p>
+    );
+  }
+
   return (
     <form action={action} className="flex flex-wrap items-end gap-2">
       {Object.entries(hiddenFields).map(([name, value]) => (

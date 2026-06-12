@@ -52,6 +52,12 @@ export async function GET(request: Request) {
   );
 
   const repo = process.env.GITHUB_BACKUP_REPO;
+  if (!repo || !process.env.GITHUB_BACKUP_TOKEN) {
+    return new NextResponse(
+      "Missing GITHUB_BACKUP_REPO or GITHUB_BACKUP_TOKEN configuration",
+      { status: 500 }
+    );
+  }
   const githubHeaders = {
     Authorization: `Bearer ${process.env.GITHUB_BACKUP_TOKEN}`,
     Accept: "application/vnd.github+json",

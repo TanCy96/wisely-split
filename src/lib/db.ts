@@ -39,7 +39,7 @@ export type ExpenseRow = {
   split_method: SplitMethod;
   is_settlement: boolean;
   expense_date: string;
-  created_by: string;
+  created_by: string | null; // NULL = added anonymously via invite link
   created_at: string;
   updated_at: string;
   expense_shares: ShareRow[];
