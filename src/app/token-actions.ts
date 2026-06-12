@@ -11,6 +11,7 @@ import {
   updateExpenseViaToken,
 } from "@/lib/db";
 import { parseExpenseForm } from "@/lib/expense-input";
+import { clearIdentity, currentIdentity, setIdentity } from "@/lib/identity";
 import { parseMoneyToCents } from "@/lib/money";
 import { currentUserId } from "@/lib/supabase-auth";
 
@@ -20,17 +21,32 @@ const fail = (path: string, message: string) =>
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{22}$/);
 const nameSchema = z.string().trim().min(1).max(80);
 
-/** Validates the token + loads members, or redirects away. */
-async function requireInvite(formData: FormData) {
+/** Validates the token + loads members, or redirects away. With
+ *  requireIdentity, also enforces the anonymous-identity gate: the write
+ *  is rejected unless the visitor has picked a member identity (cookie). */
+async function requireInvite(
+  formData: FormData,
+  opts: { requireIdentity?: boolean } = {}
+) {
   const token = tokenSchema.safeParse(formData.get("token"));
   if (!token.success) redirect("/");
   const invite = await getGroupByInviteToken(token.data);
   if (!invite) redirect("/");
-  return { token: token.data, invite, path: `/g/${token.data}` };
+  const path = `/g/${token.data}`;
+  const identityMemberId = await currentIdentity(
+    invite.group.id,
+    invite.members
+  );
+  if (opts.requireIdentity && !identityMemberId) {
+    redirect(fail(path, "Pick your name first."));
+  }
+  return { token: token.data, invite, path, identityMemberId };
 }
 
 export async function addMemberViaTokenAction(formData: FormData) {
-  const { token, path } = await requireInvite(formData);
+  const { token, path } = await requireInvite(formData, {
+    requireIdentity: true,
+  });
   const name = nameSchema.safeParse(formData.get("display_name"));
   if (!name.success) redirect(fail(path, "Member name is required."));
   const result = await addMemberViaToken(token, name.data);
@@ -40,7 +56,10 @@ export async function addMemberViaTokenAction(formData: FormData) {
 }
 
 export async function addExpenseViaTokenAction(formData: FormData) {
-  const { token, invite, path } = await requireInvite(formData);
+  const { token, invite, path, identityMemberId } = await requireInvite(
+    formData,
+    { requireIdentity: true }
+  );
   const result = parseExpenseForm(
     formData,
     invite.members.map((m) => ({ id: m.id, displayName: m.display_name }))
@@ -56,6 +75,7 @@ export async function addExpenseViaTokenAction(formData: FormData) {
       isSettlement: false,
       expenseDate: result.expense.expenseDate,
       createdBy: await currentUserId(),
+      createdByMember: identityMemberId,
     },
     result.expense.shares.map((s) => ({
       memberId: s.memberId,
@@ -69,7 +89,10 @@ export async function addExpenseViaTokenAction(formData: FormData) {
 }
 
 export async function recordPaymentViaTokenAction(formData: FormData) {
-  const { token, invite, path } = await requireInvite(formData);
+  const { token, invite, path, identityMemberId } = await requireInvite(
+    formData,
+    { requireIdentity: true }
+  );
   const parsed = z
     .object({
       from_member: z.uuid(),
@@ -104,6 +127,7 @@ export async function recordPaymentViaTokenAction(formData: FormData) {
       isSettlement: true,
       expenseDate: new Date().toISOString().slice(0, 10),
       createdBy: await currentUserId(),
+      createdByMember: identityMemberId,
     },
     [{ memberId: to_member, shareCents: amountCents, splitValue: amountCents }]
   );
@@ -113,7 +137,9 @@ export async function recordPaymentViaTokenAction(formData: FormData) {
 }
 
 export async function updateExpenseViaTokenAction(formData: FormData) {
-  const { token, invite, path } = await requireInvite(formData);
+  const { token, invite, path } = await requireInvite(formData, {
+    requireIdentity: true,
+  });
   const expenseId = z.uuid().safeParse(formData.get("expense_id"));
   if (!expenseId.success) redirect(path);
   const result = parseExpenseForm(
@@ -145,11 +171,42 @@ export async function updateExpenseViaTokenAction(formData: FormData) {
 }
 
 export async function deleteExpenseViaTokenAction(formData: FormData) {
-  const { token, path } = await requireInvite(formData);
+  const { token, path } = await requireInvite(formData, {
+    requireIdentity: true,
+  });
   const expenseId = z.uuid().safeParse(formData.get("expense_id"));
   if (!expenseId.success) redirect(path);
   const outcome = await deleteExpenseViaToken(token, expenseId.data);
   if ("error" in outcome) redirect(fail(path, outcome.error));
+  revalidatePath(path);
+  redirect(path);
+}
+
+export async function identifyViaTokenAction(formData: FormData) {
+  const { token, invite, path } = await requireInvite(formData);
+  const memberIdRaw = formData.get("member_id");
+  let memberId: string;
+  if (memberIdRaw) {
+    const parsed = z.uuid().safeParse(memberIdRaw);
+    if (!parsed.success || !invite.members.some((m) => m.id === parsed.data)) {
+      redirect(fail(path, "That name is not in this group."));
+    }
+    memberId = parsed.data;
+  } else {
+    const name = nameSchema.safeParse(formData.get("display_name"));
+    if (!name.success) redirect(fail(path, "Enter your name."));
+    const result = await addMemberViaToken(token, name.data);
+    if ("error" in result) redirect(fail(path, result.error));
+    memberId = result.memberId;
+  }
+  await setIdentity(invite.group.id, memberId);
+  revalidatePath(path);
+  redirect(path);
+}
+
+export async function clearIdentityViaTokenAction(formData: FormData) {
+  const { invite, path } = await requireInvite(formData);
+  await clearIdentity(invite.group.id);
   revalidatePath(path);
   redirect(path);
 }
