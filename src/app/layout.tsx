@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "wisely-split",
+  title: "Wisely Split",
   description: "Track shared expenses, split them fairly, settle up simply.",
 };
 
