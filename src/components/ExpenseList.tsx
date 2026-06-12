@@ -126,13 +126,16 @@ export function ExpenseList({
                 initial={editing.initial}
               />
               <div className="mt-3 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={close}
+                <a
+                  href={basePath}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    close();
+                  }}
                   className="text-sm font-semibold text-muted hover:underline"
                 >
                   Cancel
-                </button>
+                </a>
                 <form action={deleteAction}>
                   {Object.entries(hiddenFields).map(([name, value]) => (
                     <input key={name} type="hidden" name={name} value={value} />
