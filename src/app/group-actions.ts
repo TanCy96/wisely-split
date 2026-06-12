@@ -107,6 +107,7 @@ export async function addExpenseAction(formData: FormData) {
       isSettlement: false,
       expenseDate: result.expense.expenseDate,
       createdBy: userId,
+      createdByMember: members.find((m) => m.user_id === userId)?.id ?? null,
     },
     result.expense.shares.map((s) => ({
       memberId: s.memberId,
@@ -161,6 +162,7 @@ export async function recordPaymentAction(formData: FormData) {
       isSettlement: true,
       expenseDate: new Date().toISOString().slice(0, 10),
       createdBy: userId,
+      createdByMember: members.find((m) => m.user_id === userId)?.id ?? null,
     },
     [{ memberId: to_member, shareCents: amountCents, splitValue: amountCents }]
   );
