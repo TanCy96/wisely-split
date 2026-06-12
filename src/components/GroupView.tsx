@@ -52,6 +52,9 @@ export function GroupView({
   actions: GroupViewActions;
   hiddenFields: Record<string, string>;
   basePath: string;
+  /** The raw ?edit= search param of THIS request's URL. Used only to decide
+   *  whether the edit modal (which reads the URL itself, client-side) will own
+   *  the error display — pass it unsanitized so both sides see the same value. */
   editingId?: string;
   error?: string;
   inviteUrl: string;
