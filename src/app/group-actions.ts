@@ -181,7 +181,6 @@ export async function updateExpenseAction(formData: FormData) {
   });
   if (!ids.success) redirect("/");
   const path = `/groups/${ids.data.group_id}`;
-  const editPath = `${path}/expenses/${ids.data.expense_id}`;
 
   const existing = await getExpense(ids.data.expense_id);
   if (!existing || existing.group_id !== ids.data.group_id) redirect("/");
@@ -191,7 +190,11 @@ export async function updateExpenseAction(formData: FormData) {
     formData,
     members.map((m) => ({ id: m.id, displayName: m.display_name }))
   );
-  if (!result.ok) redirect(fail(editPath, result.error));
+  if (!result.ok) {
+    redirect(
+      `${path}?edit=${ids.data.expense_id}&error=${encodeURIComponent(result.error)}`
+    );
+  }
 
   await updateExpense(
     ids.data.expense_id,

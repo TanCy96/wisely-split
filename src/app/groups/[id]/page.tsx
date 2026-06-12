@@ -4,7 +4,9 @@ import { z } from "zod";
 import {
   addExpenseAction,
   addMemberAction,
+  deleteExpenseAction,
   recordPaymentAction,
+  updateExpenseAction,
 } from "@/app/group-actions";
 import { AuthNav } from "@/components/AuthNav";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
@@ -21,7 +23,7 @@ import {
 } from "@/components/ui";
 import { computeBalances } from "@/lib/balances";
 import { getGroup, listExpenses, listMembers } from "@/lib/db";
-import { formatMoney } from "@/lib/money";
+import { centsToMoneyString, formatMoney } from "@/lib/money";
 import { simplifyDebts } from "@/lib/simplify";
 import { currentUserId } from "@/lib/supabase-auth";
 
@@ -30,10 +32,10 @@ export default async function GroupPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; edit?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, edit } = await searchParams;
   if (!z.uuid().safeParse(id).success) notFound();
   const userId = await currentUserId();
   if (!userId) redirect(`/login?next=${encodeURIComponent(`/groups/${id}`)}`);
@@ -65,20 +67,77 @@ export default async function GroupPage({
     displayName: m.display_name,
   }));
 
+  const editing =
+    edit && z.uuid().safeParse(edit).success
+      ? expenses.find((e) => e.id === edit)
+      : undefined;
+  let editingInitial;
+  if (editing) {
+    const included: Record<string, boolean> = {};
+    const values: Record<string, string> = {};
+    for (const share of editing.expense_shares) {
+      included[share.member_id] = true;
+      if (editing.split_method === "exact") {
+        values[share.member_id] = centsToMoneyString(share.share_cents);
+      } else if (share.split_value !== null) {
+        values[share.member_id] = String(share.split_value);
+      }
+    }
+    editingInitial = {
+      description: editing.description,
+      amount: centsToMoneyString(editing.amount_cents),
+      paidBy: editing.paid_by,
+      expenseDate: editing.expense_date,
+      splitMethod: editing.split_method,
+      included,
+      values,
+    };
+  }
+
   return (
     <PageShell
       headerRight={<AuthNav />}
       aside={
         <>
-          <Card title="Add expense">
-            <ExpenseForm
-              action={addExpenseAction}
-              members={memberOptions}
-              defaultDate={today}
-              submitLabel="Add expense"
-              hiddenFields={{ group_id: group.id }}
-            />
-          </Card>
+          {editing ? (
+            <Card title="Edit expense" highlight>
+              <ExpenseForm
+                key={editing.id}
+                action={updateExpenseAction}
+                members={memberOptions}
+                defaultDate={editing.expense_date}
+                submitLabel="Save changes"
+                hiddenFields={{ group_id: group.id, expense_id: editing.id }}
+                initial={editingInitial}
+              />
+              <div className="mt-3 flex items-center justify-between">
+                <Link
+                  href={`/groups/${group.id}`}
+                  className="text-sm font-semibold text-muted hover:underline"
+                >
+                  Cancel
+                </Link>
+                <form action={deleteExpenseAction}>
+                  <input type="hidden" name="group_id" value={group.id} />
+                  <input type="hidden" name="expense_id" value={editing.id} />
+                  <Button variant="danger" className="px-3 py-1.5 text-xs">
+                    Delete expense
+                  </Button>
+                </form>
+              </div>
+            </Card>
+          ) : (
+            <Card title="Add expense">
+              <ExpenseForm
+                key="new"
+                action={addExpenseAction}
+                members={memberOptions}
+                defaultDate={today}
+                submitLabel="Add expense"
+                hiddenFields={{ group_id: group.id }}
+              />
+            </Card>
+          )}
           <Card title="Members">
             <ul className="mb-3 flex flex-col gap-1 text-sm">
               {members.map((m) => (
@@ -171,8 +230,11 @@ export default async function GroupPage({
             {expenses.map((e) => (
               <li key={e.id}>
                 <Link
-                  href={`/groups/${group.id}/expenses/${e.id}`}
-                  className="flex items-baseline justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/5"
+                  href={`?edit=${e.id}`}
+                  className={
+                    "flex items-baseline justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/5" +
+                    (e.id === editing?.id ? " bg-black/5 dark:bg-white/5" : "")
+                  }
                 >
                   <span>
                     <span className="font-semibold text-ink">{e.description}</span>
