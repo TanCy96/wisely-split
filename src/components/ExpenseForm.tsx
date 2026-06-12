@@ -94,7 +94,6 @@ export function ExpenseForm({
           <option value="equal">Equally</option>
           <option value="exact">Exact amounts</option>
           <option value="percent">Percentages</option>
-          <option value="shares">Shares</option>
         </Select>
       </Field>
       <fieldset className="flex flex-col gap-2">
