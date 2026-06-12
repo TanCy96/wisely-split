@@ -51,47 +51,50 @@ export default async function InvitePage({
       : "";
 
   const identityBar = identityId ? (
-    <p className="text-sm text-muted">
+    <form action={clearIdentityViaTokenAction} className="text-sm text-muted">
+      <input type="hidden" name="token" value={inviteToken} />
       You&apos;re here as{" "}
       <span className="font-semibold text-ink">{identityName}</span> —{" "}
-      <span className="inline-block">
-        <form action={clearIdentityViaTokenAction} className="inline">
-          <input type="hidden" name="token" value={inviteToken} />
-          <button className="font-semibold text-primary hover:underline">
-            switch
-          </button>
-        </form>
-      </span>
-    </p>
+      <button className="font-semibold text-primary hover:underline">
+        switch
+      </button>
+    </form>
   ) : null;
 
   // The single write-UI replacement while unidentified (GroupView `locked`).
   const locked = identityId ? undefined : !user ? (
-    <Card title="Who are you?" highlight>
-      <p className="mb-3 text-sm text-muted">
-        Pick your name to start adding expenses — no account needed.
-      </p>
-      <ul className="mb-3 flex flex-col gap-2">
-        {members.map((m) => (
-          <li key={m.id}>
-            <form action={identifyViaTokenAction}>
-              <input type="hidden" name="token" value={inviteToken} />
-              <input type="hidden" name="member_id" value={m.id} />
-              <Button variant="secondary" className="w-full">
-                I&apos;m {m.display_name}
-              </Button>
-            </form>
-          </li>
-        ))}
-      </ul>
-      <form action={identifyViaTokenAction} className="flex items-end gap-2">
-        <input type="hidden" name="token" value={inviteToken} />
-        <Field label="Or add your name">
-          <Input name="display_name" placeholder="Alex" required maxLength={80} />
-        </Field>
-        <Button className="shrink-0">That&apos;s me</Button>
-      </form>
-    </Card>
+    <div id="who-are-you">
+      <Card title="Who are you?" highlight>
+        <p className="mb-3 text-sm text-muted">
+          Pick your name to start adding expenses — no account needed.
+        </p>
+        <ul className="mb-3 flex flex-col gap-2">
+          {members.map((m) => (
+            <li key={m.id}>
+              <form action={identifyViaTokenAction}>
+                <input type="hidden" name="token" value={inviteToken} />
+                <input type="hidden" name="member_id" value={m.id} />
+                <Button variant="secondary" className="w-full">
+                  I&apos;m {m.display_name}
+                </Button>
+              </form>
+            </li>
+          ))}
+        </ul>
+        <form action={identifyViaTokenAction} className="flex items-end gap-2">
+          <input type="hidden" name="token" value={inviteToken} />
+          <Field label="Or add your name">
+            <Input
+              name="display_name"
+              placeholder="Alex"
+              required
+              maxLength={80}
+            />
+          </Field>
+          <Button className="shrink-0">That&apos;s me</Button>
+        </form>
+      </Card>
+    </div>
   ) : (
     <Card title="Want to add expenses?">
       <p className="text-sm text-muted">
@@ -110,8 +113,14 @@ export default async function InvitePage({
             <span className="font-semibold text-ink">
               You can use this page without an account.
             </span>{" "}
-            Pick your name in the &quot;Who are you?&quot; card to start adding
-            expenses, and bookmark this link to come back. If you want this
+            <a
+              href="#who-are-you"
+              className="font-semibold text-primary hover:underline"
+            >
+              Pick your name
+            </a>{" "}
+            in the &quot;Who are you?&quot; card to start adding expenses, and
+            bookmark this link to come back. If you want this
             group on your own dashboard,{" "}
             <Link
               href={`/login?next=${encodeURIComponent(joinPath)}`}
