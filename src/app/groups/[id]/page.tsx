@@ -53,6 +53,10 @@ export default async function GroupPage({
   }));
   const balances = computeBalances(members.map((m) => m.id), ledger);
   const transfers = simplifyDebts(balances);
+  // Settlements are money movement, not spending.
+  const totalSpentCents = expenses
+    .filter((e) => !e.is_settlement)
+    .reduce((acc, e) => acc + e.amount_cents, 0);
   const nameOf = new Map(members.map((m) => [m.id, m.display_name]));
   const today = new Date().toISOString().slice(0, 10);
   const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/g/${group.invite_token}`;
@@ -83,9 +87,6 @@ export default async function GroupPage({
                   className="flex items-center justify-between gap-2"
                 >
                   <span className="text-ink">{m.display_name}</span>
-                  {m.user_id === null && (
-                    <span className="text-xs text-muted">placeholder</span>
-                  )}
                 </li>
               ))}
             </ul>
@@ -109,13 +110,35 @@ export default async function GroupPage({
       {error && <Alert tone="danger">{error}</Alert>}
 
       <Card title="Balances">
-        {members.map((m) => (
-          <StatRow
-            key={m.id}
-            label={m.display_name}
-            value={formatMoney(balances.get(m.id) ?? 0, group.currency_code)}
-          />
-        ))}
+        <div className="flex items-baseline justify-between gap-3 pb-2">
+          <span className="text-sm font-semibold text-heading">Total spent</span>
+          <span className="text-lg font-extrabold text-heading">
+            {formatMoney(totalSpentCents, group.currency_code)}
+          </span>
+        </div>
+        <div className="mb-1 border-t border-border" />
+        {members.map((m) => {
+          const net = balances.get(m.id) ?? 0;
+          return (
+            <StatRow
+              key={m.id}
+              label={m.display_name}
+              value={
+                net === 0 ? (
+                  <span className="font-medium text-muted">settled up</span>
+                ) : net > 0 ? (
+                  <span className="text-success-ink">
+                    is owed {formatMoney(net, group.currency_code)}
+                  </span>
+                ) : (
+                  <span className="text-danger">
+                    owes {formatMoney(-net, group.currency_code)}
+                  </span>
+                )
+              }
+            />
+          );
+        })}
       </Card>
 
       <Card title="Settle up">
